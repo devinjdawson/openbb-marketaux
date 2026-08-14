@@ -1,0 +1,140 @@
+[
+  {
+    "name": "Market Sentiment",
+    "img": "",
+    "img_dark": "",
+    "img_light": "",
+    "description": "Marketaux news and market sentiment combined with Yahoo Finance market data. Sentiment is computed from entity scores in Marketaux articles, including the bucketed Bayesian methodology from the Market-Sentiment project.",
+    "allowCustomization": true,
+    "prompts": [],
+    "tabs": {
+      "overview": {
+        "id": "overview",
+        "name": "Overview",
+        "layout": [
+          {
+            "i": "sentiment_summary",
+            "x": 0,
+            "y": 0,
+            "w": 40,
+            "h": 10,
+            "state": {
+              "chartView": {
+                "enabled": false,
+                "chartType": "line"
+              }
+            },
+            "groups": []
+          },
+          {
+            "i": "sentiment_breakdown",
+            "x": 0,
+            "y": 10,
+            "w": 20,
+            "h": 10,
+            "groups": []
+          },
+          {
+            "i": "sentiment_history",
+            "x": 20,
+            "y": 10,
+            "w": 20,
+            "h": 10,
+            "groups": []
+          },
+          {
+            "i": "trending_entities",
+            "x": 0,
+            "y": 20,
+            "w": 20,
+            "h": 10,
+            "state": {
+              "chartView": {
+                "enabled": false,
+                "chartType": "line"
+              }
+            },
+            "groups": []
+          },
+          {
+            "i": "yahoo_quotes",
+            "x": 20,
+            "y": 20,
+            "w": 20,
+            "h": 10,
+            "state": {
+              "chartView": {
+                "enabled": false,
+                "chartType": "line"
+              }
+            },
+            "groups": []
+          },
+          {
+            "i": "yahoo_price_chart",
+            "x": 0,
+            "y": 30,
+            "w": 24,
+            "h": 12,
+            "state": {
+              "params": {
+                "symbol": "AAPL"
+              }
+            },
+            "groups": ["Group 1"]
+          },
+          {
+            "i": "entity_search",
+            "x": 24,
+            "y": 30,
+            "w": 16,
+            "h": 12,
+            "state": {
+              "chartView": {
+                "enabled": false,
+                "chartType": "line"
+              }
+            },
+            "groups": []
+          }
+        ]
+      },
+      "news": {
+        "id": "news",
+        "name": "News",
+        "layout": [
+          {
+            "i": "news_symbol",
+            "x": 0,
+            "y": 0,
+            "w": 20,
+            "h": 16,
+            "state": {
+              "params": {
+                "symbol": "AAPL"
+              }
+            },
+            "groups": ["Group 1"]
+          },
+          {
+            "i": "news_market",
+            "x": 20,
+            "y": 0,
+            "w": 20,
+            "h": 16,
+            "groups": []
+          }
+        ]
+      }
+    },
+    "groups": [
+      {
+        "name": "Group 1",
+        "type": "endpointParam",
+        "paramName": "symbol",
+        "defaultValue": "AAPL",
+        "widgetIds": ["news_symbol", "yahoo_price_chart"]
+      }
+    ]
+  }
+]
