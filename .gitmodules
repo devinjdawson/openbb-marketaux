@@ -1,0 +1,6 @@
+[submodule ".reference/backends-for-openbb"]
+	path = .reference/backends-for-openbb
+	url = https://github.com/OpenBB-finance/backends-for-openbb.git
+[submodule ".reference/Market-Sentiment"]
+	path = .reference/Market-Sentiment
+	url = https://github.com/Eric-exe/Market-Sentiment.git
