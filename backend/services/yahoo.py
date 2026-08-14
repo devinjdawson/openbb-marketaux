@@ -24,7 +24,8 @@ def _safe(value):
 
 
 def get_quotes(symbols: list) -> list:
-    """Live quote summary for a list of symbols."""
+    """Live quote summary for a list of symbols (fast_info only, no scraping)."""
+    symbols = core.normalize_symbols(symbols)
 
     def fetch():
         rows = []
@@ -42,15 +43,9 @@ def get_quotes(symbols: list) -> list:
                     change = round(last_price - previous_close, 4)
                     change_pct = round((last_price - previous_close) / previous_close * 100, 2)
 
-                name = symbol
-                try:
-                    name = ticker.info.get("shortName") or symbol
-                except Exception:
-                    pass
-
                 rows.append({
                     "symbol": symbol,
-                    "name": name,
+                    "name": symbol,
                     "price": last_price,
                     "change": change,
                     "change_pct": change_pct,

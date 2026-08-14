@@ -1,6 +1,7 @@
 """Market sentiment widgets built on Marketaux data."""
 
 import json
+from concurrent.futures import ThreadPoolExecutor
 
 from fastapi import APIRouter
 import plotly.graph_objects as go
@@ -113,15 +114,16 @@ router = APIRouter()
 def sentiment_summary(symbols: str = core.DEFAULT_SYMBOLS,
                       days: int = core.SENTIMENT_DAYS):
     """One Marketaux request per symbol: entity sentiment aggregated from articles."""
-    symbol_list = core.split_symbols(symbols)
+    symbol_list = core.normalize_symbols(core.split_symbols(symbols))
     if not symbol_list:
         return []
 
     def fetch():
-        return [
-            sentiment_service.symbol_article_stats(symbol, days=days)
-            for symbol in symbol_list
-        ]
+        with ThreadPoolExecutor(max_workers=min(len(symbol_list), 8)) as pool:
+            return list(pool.map(
+                lambda symbol: sentiment_service.symbol_article_stats(symbol, days=days),
+                symbol_list,
+            ))
 
     try:
         return core.cache.get_or_set(
@@ -165,7 +167,7 @@ def sentiment_summary(symbols: str = core.DEFAULT_SYMBOLS,
 def sentiment_breakdown(symbols: str = core.DEFAULT_SYMBOLS,
                         days: int = core.SENTIMENT_DAYS):
     """Bar chart of the six sentiment buckets plus the adjusted score."""
-    symbol_csv = ",".join(core.split_symbols(symbols))
+    symbol_csv = ",".join(core.normalize_symbols(core.split_symbols(symbols)))
 
     def fetch():
         return sentiment_service.fetch_bucket_data(symbols=symbol_csv, days=days)
@@ -252,7 +254,7 @@ def sentiment_breakdown(symbols: str = core.DEFAULT_SYMBOLS,
 def sentiment_history(symbols: str = core.DEFAULT_SYMBOLS,
                       interval: str = "day", days: int = core.SENTIMENT_DAYS):
     """Sentiment time series from /entity/stats/intraday (paid Marketaux plans)."""
-    symbol_csv = ",".join(core.split_symbols(symbols))
+    symbol_csv = ",".join(core.normalize_symbols(core.split_symbols(symbols)))
 
     def fetch():
         return client.entity_stats_intraday(

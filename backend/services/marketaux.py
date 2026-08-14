@@ -40,7 +40,12 @@ class MarketauxClient:
                 f"{BASE_URL}{path}", params=clean, timeout=self.timeout
             )
         except requests.RequestException as exc:
-            raise MarketauxError(502, "request_failed", str(exc)) from exc
+            # Never forward str(exc): requests exceptions embed the full URL,
+            # which would leak the api_token query parameter to clients.
+            raise MarketauxError(
+                502, "request_failed",
+                f"Upstream request to Marketaux failed ({type(exc).__name__}).",
+            ) from exc
 
         if response.status_code != 200:
             try:
@@ -58,32 +63,14 @@ class MarketauxClient:
     def news_all(self, **params) -> dict:
         return self._get("/news/all", params)
 
-    def news_similar(self, uuid: str, **params) -> dict:
-        return self._get(f"/news/similar/{uuid}", params)
-
-    def news_by_uuid(self, uuid: str) -> dict:
-        return self._get(f"/news/uuid/{uuid}", {})
-
-    def news_sources(self, **params) -> dict:
-        return self._get("/news/sources", params)
-
     def entity_stats_intraday(self, **params) -> dict:
         return self._get("/entity/stats/intraday", params)
-
-    def entity_stats_aggregation(self, **params) -> dict:
-        return self._get("/entity/stats/aggregation", params)
 
     def trending_aggregation(self, **params) -> dict:
         return self._get("/entity/trending/aggregation", params)
 
     def entity_search(self, **params) -> dict:
         return self._get("/entity/search", params)
-
-    def entity_type_list(self) -> dict:
-        return self._get("/entity/type/list", {})
-
-    def industry_list(self) -> dict:
-        return self._get("/entity/industry/list", {})
 
 
 client = MarketauxClient()

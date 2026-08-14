@@ -6,6 +6,7 @@ positive/negative) and normalised with a Bayesian prior so symbols with
 little news coverage are not over-ranked.
 """
 
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 
 import core
@@ -48,12 +49,12 @@ def fetch_bucket_data(symbols: str = "", days: int = core.SENTIMENT_DAYS,
                       language: str = "en", articles_per_bucket: int = 3) -> dict:
     """Count articles per sentiment bucket for the given symbols.
 
-    Costs six Marketaux requests per call (one per bucket).
+    Costs six Marketaux requests per call (one per bucket), issued in
+    parallel since the buckets are independent.
     """
-    counts = {}
-    articles = {}
 
-    for label, gte, lte in bucket_requests():
+    def request_bucket(item):
+        label, gte, lte = item
         params = {
             "sentiment_gte": gte,
             "sentiment_lte": lte,
@@ -67,8 +68,19 @@ def fetch_bucket_data(symbols: str = "", days: int = core.SENTIMENT_DAYS,
             params["must_have_entities"] = "true"
 
         payload = client.news_all(**params)
-        counts[label] = payload.get("meta", {}).get("found", 0)
-        articles[label] = payload.get("data", [])
+        return (
+            label,
+            payload.get("meta", {}).get("found", 0),
+            payload.get("data", []),
+        )
+
+    counts = {}
+    articles = {}
+
+    with ThreadPoolExecutor(max_workers=len(BUCKET_LABELS)) as pool:
+        for label, found, bucket_articles in pool.map(request_bucket, bucket_requests()):
+            counts[label] = found
+            articles[label] = bucket_articles
 
     return {"counts": counts, "articles": articles}
 
@@ -92,13 +104,16 @@ def adjusted_sentiment_score(counts: dict) -> float:
 
 
 def classify(score: float) -> str:
-    if score >= 0.25:
+    """Classify a sentiment score using the shared bucket boundaries."""
+    weak = core.SENTIMENT_POSITIVE_THRESHOLD
+    moderate = core.SENTIMENT_RANGES["moderate"][0]
+    if score >= moderate:
         return "Bullish"
-    if score >= 0.05:
+    if score >= weak:
         return "Positive"
-    if score <= -0.25:
+    if score <= -moderate:
         return "Bearish"
-    if score <= -0.05:
+    if score <= -weak:
         return "Negative"
     return "Neutral"
 

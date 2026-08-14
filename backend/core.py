@@ -4,7 +4,8 @@ Core components shared by all widget modules.
 - FastAPI application with CORS configured for OpenBB Workspace
 - Widget registry (WIDGETS dict + register_widget decorator)
 - Environment configuration
-- Simple TTL cache (Marketaux free tier allows 100 requests/day)
+- TTL cache with per-key in-flight deduplication
+  (Marketaux free tier allows 100 requests/day)
 """
 
 import asyncio
@@ -23,16 +24,26 @@ ROOT_PATH = Path(__file__).parent.resolve()
 
 load_dotenv(ROOT_PATH / ".env")
 
+
+def _int_env(name: str, default: int) -> int:
+    """Parse an integer env var, falling back on missing/invalid values."""
+    raw = os.getenv(name, "")
+    try:
+        return int(raw.strip())
+    except (ValueError, AttributeError):
+        return default
+
+
 MARKETAUX_API_TOKEN = os.getenv("MARKETAUX_API_TOKEN", "")
 
 DEFAULT_SYMBOLS = os.getenv("DEFAULT_SYMBOLS", "AAPL,MSFT,AMZN,GOOGL,TSLA,NVDA,META")
-SENTIMENT_DAYS = int(os.getenv("SENTIMENT_DAYS", "7"))
-BAYESIAN_EXTRA_VALUES = int(os.getenv("BAYESIAN_EXTRA_VALUES", "100"))
+SENTIMENT_DAYS = _int_env("SENTIMENT_DAYS", 7)
+BAYESIAN_EXTRA_VALUES = _int_env("BAYESIAN_EXTRA_VALUES", 100)
 
-CACHE_TTL_NEWS = int(os.getenv("CACHE_TTL_NEWS", "120"))
-CACHE_TTL_SENTIMENT = int(os.getenv("CACHE_TTL_SENTIMENT", "900"))
-CACHE_TTL_YAHOO_QUOTES = int(os.getenv("CACHE_TTL_YAHOO_QUOTES", "60"))
-CACHE_TTL_YAHOO_HISTORY = int(os.getenv("CACHE_TTL_YAHOO_HISTORY", "300"))
+CACHE_TTL_NEWS = _int_env("CACHE_TTL_NEWS", 120)
+CACHE_TTL_SENTIMENT = _int_env("CACHE_TTL_SENTIMENT", 900)
+CACHE_TTL_YAHOO_QUOTES = _int_env("CACHE_TTL_YAHOO_QUOTES", 60)
+CACHE_TTL_YAHOO_HISTORY = _int_env("CACHE_TTL_YAHOO_HISTORY", 300)
 
 SENTIMENT_RANGES = {
     "weak": (0.15, 0.39),
@@ -45,6 +56,11 @@ SENTIMENT_WEIGHTS = {
     "moderate": 2,
     "strong": 3,
 }
+
+# Single source of truth for what "positive"/"negative" means across the
+# backend: the weak-bucket boundaries from the Market-Sentiment methodology.
+SENTIMENT_POSITIVE_THRESHOLD = SENTIMENT_RANGES["weak"][0]
+SENTIMENT_NEGATIVE_THRESHOLD = -SENTIMENT_RANGES["weak"][0]
 
 
 app = FastAPI(
@@ -98,32 +114,67 @@ def register_widget(widget_config):
 
 
 class TTLCache:
-    """Thread-safe in-memory cache with per-entry time-to-live."""
+    """Thread-safe in-memory cache with per-entry TTL.
 
-    def __init__(self):
+    Concurrent misses for the same key run the producer only once;
+    other callers wait for the in-flight result.
+    """
+
+    def __init__(self, maxsize: int = 512):
         self._data = {}
+        self._inflight = {}
         self._lock = threading.Lock()
+        self._maxsize = maxsize
 
     def get_or_set(self, key, producer, ttl):
         now = time.time()
+        owner = True
+
         with self._lock:
             entry = self._data.get(key)
             if entry is not None and entry[0] > now:
                 return entry[1]
 
-        value = producer()
+            event = self._inflight.get(key)
+            if event is None:
+                event = threading.Event()
+                self._inflight[key] = event
+            else:
+                owner = False
+
+        if not owner:
+            event.wait()
+            with self._lock:
+                entry = self._data.get(key)
+            if entry is not None:
+                return entry[1]
+            # The owner's producer failed; retry as the sole producer.
+            return self.get_or_set(key, producer, ttl)
+
+        try:
+            value = producer()
+        except Exception:
+            with self._lock:
+                self._inflight.pop(key, None)
+            event.set()
+            raise
 
         with self._lock:
-            self._data[key] = (now + ttl, value)
-            expired = [k for k, (exp, _) in self._data.items() if exp <= now]
-            for k in expired:
-                del self._data[k]
-
+            self._inflight.pop(key, None)
+            self._data.pop(key, None)
+            self._data[key] = (time.time() + ttl, value)
+            self._evict_locked()
+        event.set()
         return value
 
-    def clear(self):
-        with self._lock:
-            self._data.clear()
+    def _evict_locked(self):
+        now = time.time()
+        expired = [k for k, (expires, _) in self._data.items() if expires <= now]
+        for key in expired:
+            del self._data[key]
+        while len(self._data) > self._maxsize:
+            oldest = next(iter(self._data))
+            del self._data[oldest]
 
 
 cache = TTLCache()
@@ -132,6 +183,11 @@ cache = TTLCache()
 def split_symbols(symbols: str) -> list:
     """Split a comma separated symbol string into a clean uppercase list."""
     return [s.strip().upper() for s in symbols.split(",") if s.strip()]
+
+
+def normalize_symbols(symbols) -> list:
+    """Deduplicate and sort symbols so cache keys are order-insensitive."""
+    return sorted(set(symbols))
 
 
 def error_response(status_code: int, code: str, message: str) -> JSONResponse:

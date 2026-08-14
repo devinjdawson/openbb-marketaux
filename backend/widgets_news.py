@@ -1,10 +1,9 @@
 """Marketaux news feed widgets."""
 
-from datetime import datetime, timedelta, timezone
-
 from fastapi import APIRouter
 
 import core
+from services import sentiment as sentiment_service
 from services.marketaux import MarketauxError, client
 
 router = APIRouter()
@@ -44,9 +43,9 @@ def transform_article(article: dict) -> dict:
 
 def sentiment_filter(sentiment: str) -> dict:
     if sentiment == "positive":
-        return {"sentiment_gte": 0.1}
+        return {"sentiment_gte": core.SENTIMENT_POSITIVE_THRESHOLD}
     if sentiment == "negative":
-        return {"sentiment_lte": -0.1}
+        return {"sentiment_lte": core.SENTIMENT_NEGATIVE_THRESHOLD}
     return {}
 
 
@@ -171,15 +170,12 @@ def news_symbol(symbol: str = "AAPL", days: int = core.SENTIMENT_DAYS,
     """News for a single symbol, entities filtered to the requested symbol."""
 
     def fetch():
-        published_after = (
-            datetime.now(timezone.utc) - timedelta(days=days)
-        ).strftime("%Y-%m-%dT%H:%M")
         return client.news_all(
             symbols=symbol.upper(),
             filter_entities="true",
             must_have_entities="true",
             sort="entity_match_score",
-            published_after=published_after,
+            published_after=sentiment_service.published_after(days),
             language="en",
             limit=limit,
         )
