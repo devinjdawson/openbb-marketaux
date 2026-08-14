@@ -1,0 +1,23 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "openbb-marketaux"
+version = "0.1.0"
+description = "Marketaux news sentiment & analytics provider extension for the OpenBB Platform"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+dependencies = [
+    "openbb-core>=1.6.0",
+]
+
+[project.entry-points."openbb_provider_extension"]
+marketaux = "openbb_marketaux:marketaux_provider"
+
+[project.entry-points."openbb_core_extension"]
+marketaux = "openbb_marketaux.marketaux_router:router"
+
+[tool.hatch.build.targets.wheel]
+packages = ["openbb_marketaux"]
