@@ -46,7 +46,8 @@ def bucket_requests() -> list:
 
 
 def fetch_bucket_data(symbols: str = "", days: int = core.SENTIMENT_DAYS,
-                      language: str = "en", articles_per_bucket: int = 3) -> dict:
+                      language: str = "en", articles_per_bucket: int = 3,
+                      api_token: str = "") -> dict:
     """Count articles per sentiment bucket for the given symbols.
 
     Costs six Marketaux requests per call (one per bucket), issued in
@@ -67,7 +68,7 @@ def fetch_bucket_data(symbols: str = "", days: int = core.SENTIMENT_DAYS,
             params["filter_entities"] = "true"
             params["must_have_entities"] = "true"
 
-        payload = client.news_all(**params)
+        payload = client.news_all(api_token=api_token, **params)
         return (
             label,
             payload.get("meta", {}).get("found", 0),
@@ -119,9 +120,11 @@ def classify(score: float) -> str:
 
 
 def symbol_article_stats(symbol: str, days: int = core.SENTIMENT_DAYS,
-                         language: str = "en", limit: int = 100) -> dict:
+                         language: str = "en", limit: int = 100,
+                         api_token: str = "") -> dict:
     """Sentiment stats for one symbol from a single news request."""
     payload = client.news_all(
+        api_token=api_token,
         symbols=symbol,
         filter_entities="true",
         must_have_entities="true",

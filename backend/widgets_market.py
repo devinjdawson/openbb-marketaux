@@ -350,15 +350,19 @@ def yahoo_price_chart(symbol: str = "AAPL", period: str = "3mo",
     },
 })
 @router.get("/entity_search")
-def entity_search(search: str = "tesla", countries: str = "us"):
+def entity_search(search: str = "tesla", countries: str = "us",
+                  token: str = core.MarketauxToken):
     """Search Marketaux entities (limit fixed at 50 by the API)."""
 
     def fetch():
-        return client.entity_search(search=search, countries=countries)
+        return client.entity_search(
+            api_token=token, search=search, countries=countries,
+        )
 
     try:
         payload = core.cache.get_or_set(
-            f"entity_search:{search}:{countries}", fetch, 600,
+            f"entity_search:{search}:{countries}:{core.token_hash(token)}",
+            fetch, 600,
         )
     except MarketauxError as exc:
         return core.error_response(exc.status_code, exc.code, exc.message)

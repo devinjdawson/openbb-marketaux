@@ -9,6 +9,7 @@ Core components shared by all widget modules.
 """
 
 import asyncio
+import hashlib
 import os
 import threading
 import time
@@ -16,7 +17,7 @@ from functools import wraps
 from pathlib import Path
 
 from dotenv import load_dotenv
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI, Header, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
@@ -178,6 +179,34 @@ class TTLCache:
 
 
 cache = TTLCache()
+
+
+def resolve_marketaux_token(
+    marketaux_api_key: str = Query(default=""),
+    marketaux_api_key_header: str = Header(default="", alias="marketaux-api-key"),
+    marketaux_api_key_header_us: str = Header(
+        default="", alias="marketaux_api_key", convert_underscores=False
+    ),
+) -> str:
+    """Marketaux token resolution: per-request key (query param or header as
+    configured in the OpenBB Workspace backend connection) takes precedence
+    over the MARKETAUX_API_TOKEN environment variable."""
+    return (
+        marketaux_api_key
+        or marketaux_api_key_header
+        or marketaux_api_key_header_us
+        or MARKETAUX_API_TOKEN
+    )
+
+
+MarketauxToken = Depends(resolve_marketaux_token)
+
+
+def token_hash(token: str) -> str:
+    """Short non-reversible token identifier for cache keys."""
+    if not token:
+        return "none"
+    return hashlib.sha256(token.encode()).hexdigest()[:10]
 
 
 def split_symbols(symbols: str) -> list:

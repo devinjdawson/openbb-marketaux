@@ -99,7 +99,8 @@ def sentiment_filter(sentiment: str) -> dict:
 })
 @router.get("/news_market")
 def news_market(search: str = "", sentiment: str = "all",
-                language: str = "en", limit: int = 20):
+                language: str = "en", limit: int = 20,
+                token: str = core.MarketauxToken):
     """Latest global financial news from Marketaux."""
 
     def fetch():
@@ -111,11 +112,11 @@ def news_market(search: str = "", sentiment: str = "all",
         if search:
             params["search"] = search
         params.update(sentiment_filter(sentiment))
-        return client.news_all(**params)
+        return client.news_all(api_token=token, **params)
 
     try:
         payload = core.cache.get_or_set(
-            f"news_market:{search}:{sentiment}:{language}:{limit}",
+            f"news_market:{search}:{sentiment}:{language}:{limit}:{core.token_hash(token)}",
             fetch, core.CACHE_TTL_NEWS,
         )
         return [transform_article(a) for a in payload.get("data", [])]
@@ -166,11 +167,12 @@ def news_market(search: str = "", sentiment: str = "all",
 })
 @router.get("/news_symbol")
 def news_symbol(symbol: str = "AAPL", days: int = core.SENTIMENT_DAYS,
-                limit: int = 20):
+                limit: int = 20, token: str = core.MarketauxToken):
     """News for a single symbol, entities filtered to the requested symbol."""
 
     def fetch():
         return client.news_all(
+            api_token=token,
             symbols=symbol.upper(),
             filter_entities="true",
             must_have_entities="true",
@@ -182,7 +184,7 @@ def news_symbol(symbol: str = "AAPL", days: int = core.SENTIMENT_DAYS,
 
     try:
         payload = core.cache.get_or_set(
-            f"news_symbol:{symbol.upper()}:{days}:{limit}",
+            f"news_symbol:{symbol.upper()}:{days}:{limit}:{core.token_hash(token)}",
             fetch, core.CACHE_TTL_NEWS,
         )
         return [transform_article(a) for a in payload.get("data", [])]

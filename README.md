@@ -70,7 +70,7 @@ pip install -r backend\requirements.txt
 Copy-Item backend\.env.example backend\.env   # then edit backend\.env
 ```
 
-Set `MARKETAUX_API_TOKEN` in `backend\.env`. Yahoo Finance (yfinance) needs **no API key**.
+Set `MARKETAUX_API_TOKEN` in `backend\.env`, or pass the token per-request (see below). Yahoo Finance (yfinance) needs **no API key**.
 
 > Note: Yahoo Finance has no official free API — `yfinance` queries Yahoo's public endpoints directly, so those endpoints can change without notice.
 
@@ -91,8 +91,9 @@ Then verify:
 
 1. Open [OpenBB Workspace](https://my.openbb.co) → **Admin** → **Data Connections** → **My Data** → **Backend**.
 2. Add the backend URL: `http://localhost:8080/widgets.json`.
-3. The **Market Sentiment** app appears with two tabs (**Overview**, **News**) and all widgets become available in the widget picker.
-4. (Optional) Add the backend app via a **Custom Command / App** so the full dashboard loads in one click.
+3. (Optional) In the backend connection settings, add authentication as a **query param or header** named `marketaux_api_key` with your Marketaux token. It is sent with every request and takes precedence over `MARKETAUX_API_TOKEN` in `backend/.env`. Both header spellings (`marketaux_api_key` / `marketaux-api-key`) are accepted.
+4. The **Market Sentiment** app appears with two tabs (**Overview**, **News**) and all widgets become available in the widget picker.
+5. (Optional) Add the backend app via a **Custom Command / App** so the full dashboard loads in one click.
 
 The **Group 1** linkage wires `Symbol News` and `Price Chart` to the shared `symbol` parameter. Clicking a symbol in **Quotes**, **Sentiment Summary**, **Trending Entities**, or **Entity Search** pushes that symbol into the group and updates both widgets at once.
 
@@ -115,7 +116,7 @@ The **Group 1** linkage wires `Symbol News` and `Price Chart` to the shared `sym
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `MARKETAUX_API_TOKEN` | — | Marketaux API token (required) |
+| `MARKETAUX_API_TOKEN` | — | Marketaux API token (fallback when `marketaux_api_key` is not sent with the request) |
 | `DEFAULT_SYMBOLS` | `AAPL,MSFT,AMZN,GOOGL,TSLA,NVDA,META` | Default watchlist |
 | `SENTIMENT_DAYS` | `7` | Default sentiment lookback (days) |
 | `BAYESIAN_EXTRA_VALUES` | `100` | Bayesian prior in adjusted score |

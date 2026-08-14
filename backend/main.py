@@ -25,6 +25,9 @@ def read_root():
     return {
         "Info": "Marketaux Sentiment Backend for OpenBB Workspace",
         "marketaux_token_configured": bool(core.MARKETAUX_API_TOKEN),
+        "auth": "Pass your Marketaux token as marketaux_api_key (query param or "
+                "header) in the OpenBB Workspace backend connection settings, or "
+                "set MARKETAUX_API_TOKEN in backend/.env.",
         "widgets": len(WIDGETS),
         "usage_note": "Add /widgets.json as a backend in OpenBB Workspace "
                       "(https://my.openbb.co -> Data Connections).",

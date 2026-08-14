@@ -22,13 +22,15 @@ class MarketauxClient:
     def __init__(self, timeout: int = REQUEST_TIMEOUT):
         self.timeout = timeout
 
-    def _get(self, path: str, params: dict) -> dict:
-        token = core.MARKETAUX_API_TOKEN
+    def _get(self, path: str, params: dict, api_token: str = "") -> dict:
+        token = api_token or core.MARKETAUX_API_TOKEN
         if not token:
             raise MarketauxError(
                 401,
                 "missing_api_token",
-                "MARKETAUX_API_TOKEN is not set. Add it to backend/.env "
+                "No Marketaux API token found. Pass marketaux_api_key with the "
+                "request (e.g. via the OpenBB Workspace backend connection) or set "
+                "MARKETAUX_API_TOKEN in backend/.env "
                 "(free token at https://www.marketaux.com/register).",
             )
 
@@ -60,17 +62,17 @@ class MarketauxClient:
 
         return response.json()
 
-    def news_all(self, **params) -> dict:
-        return self._get("/news/all", params)
+    def news_all(self, api_token: str = "", **params) -> dict:
+        return self._get("/news/all", params, api_token)
 
-    def entity_stats_intraday(self, **params) -> dict:
-        return self._get("/entity/stats/intraday", params)
+    def entity_stats_intraday(self, api_token: str = "", **params) -> dict:
+        return self._get("/entity/stats/intraday", params, api_token)
 
-    def trending_aggregation(self, **params) -> dict:
-        return self._get("/entity/trending/aggregation", params)
+    def trending_aggregation(self, api_token: str = "", **params) -> dict:
+        return self._get("/entity/trending/aggregation", params, api_token)
 
-    def entity_search(self, **params) -> dict:
-        return self._get("/entity/search", params)
+    def entity_search(self, api_token: str = "", **params) -> dict:
+        return self._get("/entity/search", params, api_token)
 
 
 client = MarketauxClient()

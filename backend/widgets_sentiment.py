@@ -112,7 +112,8 @@ router = APIRouter()
 })
 @router.get("/sentiment_summary")
 def sentiment_summary(symbols: str = core.DEFAULT_SYMBOLS,
-                      days: int = core.SENTIMENT_DAYS):
+                      days: int = core.SENTIMENT_DAYS,
+                      token: str = core.MarketauxToken):
     """One Marketaux request per symbol: entity sentiment aggregated from articles."""
     symbol_list = core.normalize_symbols(core.split_symbols(symbols))
     if not symbol_list:
@@ -121,13 +122,15 @@ def sentiment_summary(symbols: str = core.DEFAULT_SYMBOLS,
     def fetch():
         with ThreadPoolExecutor(max_workers=min(len(symbol_list), 8)) as pool:
             return list(pool.map(
-                lambda symbol: sentiment_service.symbol_article_stats(symbol, days=days),
+                lambda symbol: sentiment_service.symbol_article_stats(
+                    symbol, days=days, api_token=token,
+                ),
                 symbol_list,
             ))
 
     try:
         return core.cache.get_or_set(
-            f"sentiment_summary:{','.join(symbol_list)}:{days}",
+            f"sentiment_summary:{','.join(symbol_list)}:{days}:{core.token_hash(token)}",
             fetch, core.CACHE_TTL_SENTIMENT,
         )
     except MarketauxError as exc:
@@ -165,16 +168,19 @@ def sentiment_summary(symbols: str = core.DEFAULT_SYMBOLS,
 })
 @router.get("/sentiment_breakdown")
 def sentiment_breakdown(symbols: str = core.DEFAULT_SYMBOLS,
-                        days: int = core.SENTIMENT_DAYS):
+                        days: int = core.SENTIMENT_DAYS,
+                        token: str = core.MarketauxToken):
     """Bar chart of the six sentiment buckets plus the adjusted score."""
     symbol_csv = ",".join(core.normalize_symbols(core.split_symbols(symbols)))
 
     def fetch():
-        return sentiment_service.fetch_bucket_data(symbols=symbol_csv, days=days)
+        return sentiment_service.fetch_bucket_data(
+            symbols=symbol_csv, days=days, api_token=token,
+        )
 
     try:
         data = core.cache.get_or_set(
-            f"sentiment_breakdown:{symbol_csv}:{days}",
+            f"sentiment_breakdown:{symbol_csv}:{days}:{core.token_hash(token)}",
             fetch, core.CACHE_TTL_SENTIMENT,
         )
     except MarketauxError as exc:
@@ -252,12 +258,14 @@ def sentiment_breakdown(symbols: str = core.DEFAULT_SYMBOLS,
 })
 @router.get("/sentiment_history")
 def sentiment_history(symbols: str = core.DEFAULT_SYMBOLS,
-                      interval: str = "day", days: int = core.SENTIMENT_DAYS):
+                      interval: str = "day", days: int = core.SENTIMENT_DAYS,
+                      token: str = core.MarketauxToken):
     """Sentiment time series from /entity/stats/intraday (paid Marketaux plans)."""
     symbol_csv = ",".join(core.normalize_symbols(core.split_symbols(symbols)))
 
     def fetch():
         return client.entity_stats_intraday(
+            api_token=token,
             symbols=symbol_csv,
             interval=interval,
             group_by="symbol",
@@ -268,7 +276,7 @@ def sentiment_history(symbols: str = core.DEFAULT_SYMBOLS,
 
     try:
         payload = core.cache.get_or_set(
-            f"sentiment_history:{symbol_csv}:{interval}:{days}",
+            f"sentiment_history:{symbol_csv}:{interval}:{days}:{core.token_hash(token)}",
             fetch, core.CACHE_TTL_SENTIMENT,
         )
     except MarketauxError as exc:
@@ -394,11 +402,13 @@ def sentiment_history(symbols: str = core.DEFAULT_SYMBOLS,
     },
 })
 @router.get("/trending_entities")
-def trending_entities(countries: str = "us", days: int = 1, limit: int = 20):
+def trending_entities(countries: str = "us", days: int = 1, limit: int = 20,
+                      token: str = core.MarketauxToken):
     """Trending entities from /entity/trending/aggregation (paid Marketaux plans)."""
 
     def fetch():
         return client.trending_aggregation(
+            api_token=token,
             countries=countries,
             published_after=sentiment_service.published_after(days),
             language="en",
@@ -407,7 +417,7 @@ def trending_entities(countries: str = "us", days: int = 1, limit: int = 20):
 
     try:
         payload = core.cache.get_or_set(
-            f"trending_entities:{countries}:{days}:{limit}",
+            f"trending_entities:{countries}:{days}:{limit}:{core.token_hash(token)}",
             fetch, core.CACHE_TTL_SENTIMENT,
         )
     except MarketauxError as exc:
