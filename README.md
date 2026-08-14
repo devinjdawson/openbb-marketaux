@@ -18,7 +18,7 @@ Two deliverables live in this repo:
 Install into any environment that has the OpenBB Platform:
 
 ```bash
-pip install -e openbb_marketaux
+pip install -e .
 ```
 
 Credentials — use the same `marketaux_api_key` you already entered in OpenBB
